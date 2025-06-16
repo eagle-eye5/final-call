@@ -2,41 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Car Game</title>
+  <title>Car Skid Game</title>
   <style>
     body {
       margin: 0;
-      background: #f4f4f4;
+      overflow: hidden;
     }
     canvas {
       display: block;
-      margin: auto;
-      border: 10px solid black;
       background: white;
+      border: 5px solid black;
     }
   </style>
 </head>
 <body>
   <canvas id="colab-canvas" width="1500" height="1300"></canvas>
 
+  <!-- Optional: Place skid.mp3 in the same folder -->
+  <audio id="skid-audio" src="skid.mp3" preload="auto"></audio>
+
   <script>
     (function() {
       const canvas = document.getElementById('colab-canvas');
       const ctx = canvas.getContext('2d');
+      const skidSound = document.getElementById('skid-audio');
 
       const config = {
         circleRadius: 360,
         ballRadius: 8,
         carWidth: 40,
         carHeight: 20,
-        acceleration: 1.,
+        acceleration: 1.2,
         damping: 1.0,
-        numBalls: 30,
+        numBalls: 20,
         keys: {},
-        carFriction: 0.7,
+        carFriction: 0.985,
         maxSpeed: 20,
-        brakeFriction: .94,
-        tireMarkFade: .94
+        brakeFriction: 0.8,
+        tireMarkFade: 0.95
       };
 
       const circle = { x: 500, y: 430 };
@@ -55,26 +58,40 @@
         }
       }
 
-      document.addEventListener('keydown', (e) => config.keys[e.key] = true);
-      document.addEventListener('keyup', (e) => config.keys[e.key] = false);
+      document.addEventListener('keydown', e => config.keys[e.key.toLowerCase()] = true);
+      document.addEventListener('keyup', e => config.keys[e.key.toLowerCase()] = false);
 
       function updatePhysics() {
         let ax = 0, ay = 0;
-        if (config.keys['d'] || config.keys['ArrowRight']) ax += config.acceleration;
-        if (config.keys['a'] || config.keys['ArrowLeft']) ax -= config.acceleration;
-        if (config.keys['w'] || config.keys['ArrowUp']) ay -= config.acceleration;
-        if (config.keys['s'] || config.keys['ArrowDown']) ay += config.acceleration;
+        if (config.keys['d']) ax += config.acceleration;
+        if (config.keys['a']) ax -= config.acceleration;
+        if (config.keys['w']) ay -= config.acceleration;
+        if (config.keys['s']) ay += config.acceleration;
 
         car.vx += ax;
         car.vy += ay;
 
-        if (config.keys['e'] || config.keys['E']) {
+        if (config.keys['e']) {
           car.vx *= config.brakeFriction;
           car.vy *= config.brakeFriction;
 
-          const speed = Math.sqrt(car.vx * car.vx + car.vy * car.vy);
+          const speed = Math.sqrt(car.vx ** 2 + car.vy ** 2);
           if (speed > 3) {
-            tireMarks.push({ x: car.x, y: car.y, alpha: 1 });
+            // Tire mark
+            tireMarks.push({
+              x1: car.x - Math.cos(car.angle) * 10,
+              y1: car.y - Math.sin(car.angle) * 10,
+              x2: car.x + Math.cos(car.angle) * 10,
+              y2: car.y + Math.sin(car.angle) * 10,
+              alpha: 1
+            });
+
+            // Skid sound
+            if (skidSound) {
+              skidSound.currentTime = 0;
+              skidSound.volume = 0.4;
+              skidSound.play().catch(() => {});
+            }
           }
         } else {
           car.vx *= config.carFriction;
@@ -144,10 +161,12 @@
 
       function drawTireMarks() {
         tireMarks.forEach(mark => {
-          ctx.fillStyle = `rgba(0, 0, 0, ${mark.alpha})`;
+          ctx.strokeStyle = `rgba(0, 0, 0, ${mark.alpha})`;
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.arc(mark.x, mark.y, 3, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.moveTo(mark.x1, mark.y1);
+          ctx.lineTo(mark.x2, mark.y2);
+          ctx.stroke();
         });
       }
 
